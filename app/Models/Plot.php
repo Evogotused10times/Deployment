@@ -20,8 +20,6 @@ class Plot extends Model
         'occupant_name',
         'occupant_contact',
         'geojson',
-
-        // NEW: classify plot kind: 'lawn','garden','mausoleum','vault', etc.
         'plot_type',
     ];
 

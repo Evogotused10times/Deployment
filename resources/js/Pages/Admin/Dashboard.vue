@@ -293,140 +293,165 @@ onBeforeUnmount(() => {
 <template>
   <div class="min-h-screen text-[color:var(--ink)] bg-gradient-to-b from-white via-[#F8FAF9] to-white" style="--ink:#1C1C1C">
     <!-- =========================
-         HERO / TOP BAR (with slideshow)
-         ========================= -->
+     HERO / TOP BAR (with slideshow)
+     ========================= -->
+<div
+  class="relative w-full h-[320px] md:h-[360px] lg:h-[420px] rounded-b-[2rem]
+         shadow-[0_10px_40px_rgba(79,160,127,.18)] overflow-hidden"
+  role="img"
+  :aria-label="slides.length ? slides[activeSlide].title : 'Administrative area background'"
+>
+  <!-- Image slider track (smooth horizontal swipe) -->
+  <div class="absolute inset-0">
+    <!-- When we have slides: sliding track -->
     <div
-      class="relative w-full bg-center bg-cover h-[320px] md:h-[360px] lg:h-[420px] rounded-b-[2rem] shadow-[0_10px_40px_rgba(79,160,127,.18)]"
+      v-if="slides.length"
+      class="flex h-full w-full"
       :style="{
-        backgroundImage: slides.length
-          ? `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.18)), url('${slides[activeSlide].src}')`
-          : `linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.18)), url('${HERO_IMG}')`,
+        transform: `translateX(-${activeSlide * 100}%)`,
+        transition: 'transform 600ms ease'
+      }"
+    >
+      <div
+        v-for="(s, i) in slides"
+        :key="i"
+        class="h-full w-full flex-shrink-0 bg-center bg-cover"
+        :style="{
+          backgroundImage: `url('${s.src}')`,
+          backgroundPosition: 'center 75%'
+        }"
+      ></div>
+    </div>
+
+    <!-- Fallback: single background image -->
+    <div
+      v-else
+      class="h-full w-full bg-center bg-cover"
+      :style="{
+        backgroundImage: `url('${HERO_IMG}')`,
         backgroundPosition: 'center 75%'
       }"
-      role="img"
-      :aria-label="slides.length ? slides[activeSlide].title : 'Administrative area background'"
-    >
-      <!-- soft brand glaze -->
-      <div class="absolute inset-0 pointer-events-none mix-blend-soft-light"
-           :style="{ background: `linear-gradient(90deg, ${C.green}66, ${C.yellow}55)` }"></div>
+    ></div>
+  </div>
 
-      <!-- Hero content -->
-      <div class="max-w-7xl mx-auto h-full flex flex-col relative z-10">
-        <!-- Top bar -->
-        <div class="flex items-center justify-between gap-3 px-6 pt-4">
-          <div class="flex items-center gap-2">
-            <img :src="LOGO" alt="Bethany Memorial Park"
-                 class="h-9 w-9 rounded-lg object-contain bg-white ring-2 ring-white/60 shadow-sm" />
-            <div class="text-white/95 font-semibold tracking-tight">Bethany Memorial • Admin</div>
-          </div>
+  <!-- Dark gradient overlay -->
+  <div
+    class="absolute inset-0 pointer-events-none"
+    style="background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.18));"
+  ></div>
 
-          <!-- Right: search + burger -->
-          <div class="ml-auto flex items-center gap-2">
-            <!-- Command input -->
-            <div class="relative hidden md:flex items-center">
-              <span class="cmdk-icon absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-6-6"
-                        stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span>
+  <!-- Soft brand glaze -->
+  <div
+    class="absolute inset-0 pointer-events-none mix-blend-soft-light"
+    :style="{ background: `linear-gradient(90deg, ${C.green}66, ${C.yellow}55)` }"
+  ></div>
 
-              <input
-                id="cmdk"
-                v-model="query"
-                @keyup.enter="go"
-                placeholder="Jump to: apps, reservations, interments…"
-                class="w-80 max-w-full pl-9 pr-3 py-2 rounded-lg text-sm bg-white border border-white/70
-                      focus:outline-none focus:ring-2 focus:ring-[#6E63A6] focus:border-[#6E63A6]" />
-            </div>
+  <!-- Hero content -->
+  <div class="max-w-7xl mx-auto h-full flex flex-col relative z-10">
+    <!-- Top bar -->
+    <div class="flex items-center justify-between gap-3 px-6 pt-4">
+      <div class="flex items-center gap-2">
+        <img :src="LOGO" alt="Bethany Memorial Park"
+             class="h-9 w-9 rounded-lg object-contain bg-white ring-2 ring-white/60 shadow-sm" />
+        <div class="text-white/95 font-semibold tracking-tight">Bethany Memorial • Admin</div>
+      </div>
 
-            <button
-              class="px-3 py-2 rounded-lg text-sm font-medium text-[color:var(--ink)]
-                    bg-[#F5D146] hover:brightness-95"
-              @click="go">
-              Go
-            </button>
+      <!-- Right: search + burger -->
+      <div class="ml-auto flex items-center gap-2">
+        <!-- Command input -->
+        <div class="relative hidden md:flex items-center">
+          <span class="cmdk-icon absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-6-6"
+                    stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
 
-            <!-- Burger -->
-            <div class="relative" ref="navRef">
-              <button
-                type="button" @click.stop="toggleNav"
-                class="h-10 w-10 rounded-xl bg-white border border-white/70 grid place-items-center
-                      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6E63A6]"
-                :aria-expanded="showNav ? 'true' : 'false'" aria-haspopup="menu"
-                aria-label="Open navigation"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-800" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M3 12h18M3 18h18"/>
-                </svg>
-              </button>
-
-              <!-- SOLID dropdown (no glass, no backdrop-blur) -->
-              <div
-                v-show="showNav"
-                class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden z-50"
-                role="menu"
-              >
-                <div class="px-3 py-2 text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50">Navigate</div>
-                <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.applications.index'))">📝 Applications</button>
-                <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.reservations.index'))">📌 Reservations</button>
-                <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.interments.index'))">🕯️ Interments</button>
-                <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.plots.index'))">📦 Plots</button>
-                <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.announcements.index'))">📜 Announcements</button>
-                <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.map.gl'))">🗺️ Map (GL)</button>
-                <div class="h-px bg-gray-200 my-1"></div>
-                <div class="px-3 py-2 text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50">Session</div>
-                <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600" @click="logout">🚪 Logout</button>
-              </div>
-            </div>
-          </div>
+          <input
+            id="cmdk"
+            v-model="query"
+            @keyup.enter="go"
+            placeholder="Jump to: apps, reservations, interments…"
+            class="w-80 max-w-full pl-9 pr-3 py-2 rounded-lg text-sm bg-white border border-white/70
+                  focus:outline-none focus:ring-2 focus:ring-[#6E63A6] focus:border-[#6E63A6]" />
         </div>
 
-        <!-- Hero Title + slide caption -->
-        <div class="flex-1 flex items-end px-6 pb-9">
-          <div class="text-white drop-shadow max-w-xl">
-            <div class="text-3xl md:text-5xl font-extrabold tracking-tight">Admin Dashboard</div>
-            <div class="mt-2 text-sm md:text-base opacity-90">
-              Quick navigation, live counters, and recent activity.
-            </div>
-            <div v-if="slides.length" class="mt-3 text-xs md:text-sm text-white/80">
-              <span class="font-semibold">{{ slides[activeSlide].title }} · </span>
-              <span>{{ slides[activeSlide].desc }}</span>
-            </div>
-          </div>
-        </div>
+        <button
+          class="px-3 py-2 rounded-lg text-sm font-medium text-[color:var(--ink)]
+                bg-[#F5D146] hover:brightness-95"
+          @click="go">
+          Go
+        </button>
 
-        <!-- Hero slideshow controls (bottom-right) -->
-        <div
-          v-if="slides.length"
-          class="absolute bottom-4 right-4 flex items-center gap-3 text-xs text-white/80 z-20"
-        >
-          <div class="flex items-center gap-1">
-            <button
-              type="button"
-              class="px-2 py-1 rounded-full border border-white/50 bg-black/30 hover:bg-black/45"
-              @click.stop="prevSlide"
-            >◀</button>
-            <button
-              type="button"
-              class="px-2 py-1 rounded-full border border-white/50 bg-black/30 hover:bg-black/45"
-              @click.stop="nextSlide"
-            >▶</button>
-          </div>
-          <div class="flex items-center gap-1">
-            <button
-              v-for="(s, i) in slides"
-              :key="i"
-              type="button"
-              class="w-2 h-2 rounded-full"
-              :class="i === activeSlide ? 'bg-[#F5D146]' : 'bg-white/60'"
-              @click.stop="goSlide(i)"
-            />
+        <!-- Burger -->
+        <div class="relative" ref="navRef">
+          <button
+            type="button" @click.stop="toggleNav"
+            class="h-10 w-10 rounded-xl bg-white border border-white/70 grid place-items-center
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6E63A6]"
+            :aria-expanded="showNav ? 'true' : 'false'" aria-haspopup="menu"
+            aria-label="Open navigation"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-800" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M3 12h18M3 18h18"/>
+            </svg>
+          </button>
+
+          <!-- SOLID dropdown (no glass, no backdrop-blur) -->
+          <div
+            v-show="showNav"
+            class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden z-50"
+            role="menu"
+          >
+            <div class="px-3 py-2 text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50">Navigate</div>
+            <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.applications.index'))">📝 Applications</button>
+            <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.reservations.index'))">📌 Reservations</button>
+            <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.interments.index'))">🕯️ Interments</button>
+            <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.plots.index'))">📦 Plots</button>
+            <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.announcements.index'))">📜 Announcements</button>
+            <button class="w-full text-left px-3 py-2 hover:bg-gray-50" @click="goTo(r('admin.map.gl'))">🗺️ Map (GL)</button>
+            <div class="h-px bg-gray-200 my-1"></div>
+            <div class="px-3 py-2 text-[11px] uppercase tracking-wide text-gray-500 bg-gray-50">Session</div>
+            <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600" @click="logout">🚪 Logout</button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Hero Title + slide caption -->
+    <div class="flex-1 flex items-end px-6 pb-9">
+      <div class="text-white drop-shadow max-w-xl">
+        <div class="text-3xl md:text-5xl font-extrabold tracking-tight">Admin Dashboard</div>
+        <div class="mt-2 text-sm md:text-base opacity-90">
+          Quick navigation, live counters, and recent activity.
+        </div>
+        <div v-if="slides.length" class="mt-3 text-xs md:text-sm text-white/80">
+          <span class="font-semibold">{{ slides[activeSlide].title }} · </span>
+          <span>{{ slides[activeSlide].desc }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero slideshow controls (bottom-right) -->
+    <div
+      v-if="slides.length"
+      class="absolute bottom-4 right-4 flex items-center gap-3 text-xs text-white/80 z-20"
+    >
+      <div class="flex items-center gap-1">
+        <button
+          v-for="(s, i) in slides"
+          :key="i"
+          type="button"
+          class="w-2 h-2 rounded-full"
+          :class="i === activeSlide ? 'bg-[#F5D146]' : 'bg-white/60'"
+          @click.stop="goSlide(i)"
+        />
+      </div>
+    </div>
+  </div>
+</div>
+
 
     <!-- =========================
          CONTENT

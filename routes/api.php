@@ -9,6 +9,10 @@ use App\Http\Controllers\PublicStatsController;
 use App\Http\Controllers\PlotController;
 use App\Http\Controllers\VirtualCandleController;
 use App\Http\Controllers\CandleController;
+use App\Http\Controllers\Api\PlotApiController;
+
+
+Route::get('/plots', [PlotApiController::class, 'index']);
 
 
 // ✅ Virtual candles (public)
@@ -92,6 +96,7 @@ Route::get('/plots', function () {
                     'occupant_name'    => $resolvedOccupant,
                     'occupant_contact' => $plot->occupant_contact,
                     'price'            => $plot->price,
+                    'plot_type'        => $plot->plot_type ?? 'lawn',
                 ],
             ];
         })->filter()->values();

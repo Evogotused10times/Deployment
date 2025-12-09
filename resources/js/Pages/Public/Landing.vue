@@ -249,7 +249,8 @@ onBeforeUnmount(() => {
 
           <p class="mt-4 text-sm text-gray-700 flex items-center gap-2">
             <Info class="w-4 h-4 text-[#4FA07F]" />
-            Need help? Call <a href="tel:+639000000000" class="text-[#4FA07F] font-medium hover:underline">+63 900 000 0000</a>
+            Need help? Call <a href="tel:+639093906407/
++639944361022" class="text-[#4FA07F] font-medium hover:underline">+6309093906407/+639944361022</a>
           </p>
         </div>
 

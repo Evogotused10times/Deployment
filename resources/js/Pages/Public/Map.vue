@@ -122,6 +122,35 @@ function colorExpression () {
   ]
 }
 
+// Neutral / prime styling for mausoleum and vault plots
+function mausoleumFillColorExpression () {
+  return [
+    'case',
+    ['==', ['get', 'plot_type'], 'mausoleum'], '#9ca3af',
+    ['==', ['get', 'plot_type'], 'vault'],     '#94a3b8',
+    // default: use status-based colors
+    colorExpression(),
+  ]
+}
+
+function outlineColorExpression () {
+  return [
+    'case',
+    ['==', ['get', 'plot_type'], 'mausoleum'], '#111827',   // almost black
+    ['==', ['get', 'plot_type'], 'vault'],     '#0f172a',
+    '#ffffff',
+  ]
+}
+
+function outlineWidthExpression () {
+  return [
+    'case',
+    ['==', ['get', 'plot_type'], 'mausoleum'], 1.4,
+    ['==', ['get', 'plot_type'], 'vault'],     1.4,
+    0.8,
+  ]
+}
+
 function buildFilter () {
   const f = ['all']
   if (filterStatus.value) {
@@ -208,24 +237,26 @@ async function loadPlots () {
         promoteId: 'id',
       })
 
+      // Fill layer: status color for lawn/garden, neutral for mausoleum/vault
       map.value.addLayer({
         id: fillLayerId,
         type: 'fill',
         source: plotsSourceId,
         paint: {
-          'fill-color': colorExpression(),
+          'fill-color': mausoleumFillColorExpression(),
           'fill-opacity': 0.38,
         },
       })
 
+      // Outline: thicker and darker for mausoleum/vault
       map.value.addLayer({
         id: lineLayerId,
         type: 'line',
         source: plotsSourceId,
         paint: {
-          'line-color': '#ffffff',
-          'line-opacity': 0.65,
-          'line-width': 0.8,
+          'line-color': outlineColorExpression(),
+          'line-opacity': 0.85,
+          'line-width': outlineWidthExpression(),
         },
       })
 
@@ -794,6 +825,7 @@ onBeforeUnmount(() => {
 
 watch([filterStatus, filterBlock], applyFilters)
 </script>
+
 
 <template>
   <div class="h-screen bg-gradient-to-b from-[#F7FCF9] to-white flex flex-col overflow-hidden">

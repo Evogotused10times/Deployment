@@ -18,9 +18,9 @@ class DatabaseSeeder extends Seeder
                     SectionSeeder::class,
                     PlotSeeder::class,]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
     }
 }

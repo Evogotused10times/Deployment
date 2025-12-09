@@ -84,6 +84,7 @@ class PlotController extends Controller
                         'occupant_name' => $displayName,
                         'service_type'  => null,
                         'candle_count'  => $candleCount,
+                        'plot_type'     => $plot->plot_type ?? 'lawn','garden','mausoleum','vault'
                     ],
                 ];
             })->filter()->values();

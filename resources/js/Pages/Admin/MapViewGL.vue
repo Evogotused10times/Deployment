@@ -16,7 +16,7 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 const ui = ref({ menuOpen: true }) // open by default; forced open on md+ via CSS
 const logoUrl = '/images/Bethany.png'
 
-/* Top-right nav dropdown (same pattern as other pages) */
+/* Top-right nav dropdown */
 const showNav = ref(false)
 const navRef  = ref(null)
 
@@ -32,7 +32,7 @@ function onDocClick(e) {
   if (navRef.value && !navRef.value.contains(e.target)) closeNav()
 }
 
-/* Global navigation helpers, reused by header + logo control */
+/* Global navigation helpers */
 function goDashboard()    { router.visit('/admin') }
 function goApplications() { router.visit('/admin/applications') }
 function goReservations() { router.visit('/admin/reservations') }
@@ -63,16 +63,16 @@ const SATELLITE_STYLE = {
     esri: {
       type: 'raster',
       tiles: [
-        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       ],
       tileSize: 256,
-      attribution: 'Imagery © Esri, Maxar, Earthstar Geographics'
-    }
+      attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
+    },
   },
-  layers: [{ id: 'esri-satellite', type: 'raster', source: 'esri' }]
+  layers: [{ id: 'esri-satellite', type: 'raster', source: 'esri' }],
 }
 
-// Minimal MapLibre-friendly styles for MapboxDraw (no line-dasharray, no sprite)
+// Minimal MapLibre-friendly styles for MapboxDraw
 const DRAW_STYLES = [
   { id: 'gl-draw-polygon-fill', type: 'fill',
     filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
@@ -100,7 +100,7 @@ const DRAW_STYLES = [
     paint: { 'line-color': '#111827', 'line-width': 2 } },
 ]
 
-// --- Gap tuning ---
+// --- Gap tuning for lawn/garden/vault blocks ---
 const GAP_SCALE       = 1.5
 const EDGE_MARGIN_M   = 0.40
 const AISLE_EVERY_ROWS= 8
@@ -109,10 +109,16 @@ const AISLE_GAP_M     = 1.40
 // 2) Bethany focus
 const CENTER = { lng: 123.9498, lat: 9.9469, zoom: 18.2 }
 
-// 3) Plot packing defaults (size)
+// 3) Plot packing defaults (lawn/garden/vault)
 const PLOT_W_M = 1.0
 const PLOT_H_M = 2.5
-const MAUSOLEUM_SIZE_M = 5
+
+// 3b) Mausoleum grid defaults
+const MAUS_W_M     = 2.0  // width of mausoleum lot
+const MAUS_H_M     = 5.0   // depth of mausoleum lot
+const MAUS_GAP_X_M = 0.40  // horizontal gap
+const MAUS_GAP_Y_M = 0.40  // vertical gap
+const MAUS_MAX     = 176   // target total mausoleum lots
 
 // breathing space between plots (meters)
 const LOT_GAP_X_M   = 0.35
@@ -121,7 +127,7 @@ const LOT_GAP_Y_M   = 0.35
 // aisles (walkways)
 const USE_AISLES       = true
 
-// light origin-search so rows/cols align nicely
+// origin-search grid so rows/cols align nicely
 const GRID_TRIALS_X = 6
 const GRID_TRIALS_Y = 6
 
@@ -130,8 +136,15 @@ const BLOCKS = [
   { name: 'BLOCK 1', service: 'Lawn Lot' },
   { name: 'BLOCK 2', service: 'Lawn Lot' },
   { name: 'BLOCK 3', service: 'Garden Lot' },
-  { name: 'BLOCK 4', service: 'Community Vaults' },
+  { name: 'BLOCK 4', service: 'Garden Lot' },
 ]
+
+// plot_type resolver per block
+function resolvePlotTypeForBlock(idx) {
+  if (idx === 0 || idx === 1) return 'lawn'
+  if (idx === 2)              return 'garden'
+  return null
+}
 
 // 5) Map/source/layer ids
 const plotsSourceId = 'plots-src'
@@ -145,13 +158,13 @@ const labelLayerId  = 'plots-label'
 const map = ref(null)
 const loading = ref(false)
 const error = ref('')
-const search = ref('')
 
+const search = ref('')
 const filterStatus  = ref('')
 const filterSection = ref('')
 const totals = ref({ total: 0, vacant: 0, reserved: 0, occupied: 0 })
 
-// Draw mode (blocks)
+// Design mode (blocks / mausoleum area)
 const design = ref({ enabled: false, drawnIds: [] })
 let draw = null
 
@@ -165,10 +178,10 @@ const selectedPlotIds = new Set()
 
 function getOccupantDisplay(props = {}) {
   return (
-    props.occupant_name ||          // ideal (what map expects)
-    props.deceased_name ||          // maybe from interment/application
-    props.reserved_by_name ||       // maybe from reservation
-    props.applicant_name ||         // fallback from original application
+    props.occupant_name ||
+    props.deceased_name ||
+    props.reserved_by_name ||
+    props.applicant_name ||
     ''
   )
 }
@@ -184,9 +197,36 @@ function colorExpression() {
     'vacant',   statusColor('vacant'),
     'reserved', statusColor('reserved'),
     'occupied', statusColor('occupied'),
-    '#9ca3af'
+    '#9ca3af',
   ]
 }
+
+// Mausoleum / vault styling overrides
+function mausoleumFillColorExpression() {
+  return [
+    'case',
+    ['==', ['get', 'plot_type'], 'mausoleum'], '#9ca3af',
+    colorExpression(),
+  ]
+}
+
+function outlineColorExpression() {
+  return [
+    'case',
+    ['==', ['get', 'plot_type'], 'mausoleum'], '#111827',
+    ['==', ['get', 'plot_type'], 'vault'],     '#ffffff',
+    '#ffffff',
+  ]
+}
+
+function outlineWidthExpression() {
+  return [
+    'case',
+    ['==', ['get', 'plot_type'], 'mausoleum'], 2.0,
+    0.8,
+  ]
+}
+
 function buildFilter() {
   const f = ['all']
   if (filterStatus.value)  f.push(['==', ['get', 'status'],  filterStatus.value])
@@ -268,10 +308,6 @@ function centroidM(ringM) {
   }
   return [cx / (6 * a), cy / (6 * a)]
 }
-function mausoleumSquareAround([x, y], sizeM) {
-  const s = sizeM/2
-  return [[x-s,y-s],[x+s,y-s],[x+s,y+s],[x-s,y+s],[x-s,y-s]]
-}
 
 // extra helpers for dense packing
 function rectAllCornersInside(rectRingM, ringM) {
@@ -285,7 +321,7 @@ function buildRectRingAligned(x0, y0, w, h) {
 }
 
 /* =========================================================================
-   Plot generation (per block) + GeoJSON download
+   Plot generation for 4 lawn/garden/vault blocks
    ========================================================================= */
 function generatePlotsForBlock(blockIdx, poly) {
   const props = BLOCKS[blockIdx]
@@ -357,6 +393,8 @@ function generatePlotsForBlock(blockIdx, poly) {
 
           count++
           const lotNum = String(count).padStart(3, '0')
+          const coordsLngLat = ringMetersToLngLat(rectM)
+
           rects.push({
             type: 'Feature',
             properties: {
@@ -366,8 +404,12 @@ function generatePlotsForBlock(blockIdx, poly) {
               block: props.name,
               section: props.name,
               service_type: props.service,
+              plot_type: resolvePlotTypeForBlock(blockIdx),
             },
-            geometry: { type: 'Polygon', coordinates: [ ringMetersToLngLat(rectM) ] }
+            geometry: {
+              type: 'Polygon',
+              coordinates: [coordsLngLat],
+            },
           })
         }
       }
@@ -376,31 +418,127 @@ function generatePlotsForBlock(blockIdx, poly) {
     }
   }
 
-  const features = [...best.rects]
-  const ringAligned2 = rotateRing(ringM, pivot, -angleDeg)
-  const bba = bboxOfRing(ringAligned2)
-  const cornersAligned = [[bba.minX,bba.minY],[bba.maxX,bba.minY],[bba.maxX,bba.maxY],[bba.minX,bba.maxY]]
-  cornersAligned.forEach((pt, i) => {
-    const sqAligned = mausoleumSquareAround(pt, MAUSOLEUM_SIZE_M)
-    const sqRot = sqAligned.map(p => rotatePoint(p, pivot, angleDeg))
-    if (!rectAllCornersInside(sqRot, ringM)) return
-    features.push({
-      type: 'Feature',
-      properties: {
-        id: `${blockIdx+1}-M${i+1}`,
-        lot_number: `${blockIdx+1}-M${i+1}`,
-        status: 'vacant',
-        block: props.name,
-        section: props.name,
-        service_type: 'Mausoleum',
-      },
-      geometry: { type:'Polygon', coordinates: [ ringMetersToLngLat(sqRot) ] }
-    })
-  })
+  return [...best.rects]
+}
+
+/* =========================================================================
+   Mausoleum generation (separate from 4-block generator)
+   ========================================================================= */
+
+/**
+ * Generate a mausoleum grid inside one polygon.
+ * - Uses separate width/height/gaps.
+ * - Packs as many as fit, capped at MAUS_MAX.
+ * - IDs: M-001 ... M-XXX
+ */
+function generateMausoleumsForPolygon(poly, maxLots = MAUS_MAX) {
+  const ringDeg = poly.coordinates[0]
+  let ringM = ringLngLatToMeters(ringDeg)
+  if (ringM[0][0] !== ringM.at(-1)[0] || ringM[0][1] !== ringM.at(-1)[1]) {
+    ringM.push(ringM[0])
+  }
+
+  const angleDeg = longestEdgeAngleDeg(ringM)
+  const bb0 = bboxOfRing(ringM)
+  const pivot = [(bb0.minX + bb0.maxX) / 2, (bb0.minY + bb0.maxY) / 2]
+  const ringAligned = rotateRing(ringM, pivot, -angleDeg)
+  const bb = bboxOfRing(ringAligned)
+
+  const baseGapX = MAUS_GAP_X_M
+  const baseGapY = MAUS_GAP_Y_M
+
+  const minX = bb.minX + EDGE_MARGIN_M
+  const maxX = bb.maxX - EDGE_MARGIN_M
+  const minY = bb.minY + EDGE_MARGIN_M
+  const maxY = bb.maxY - EDGE_MARGIN_M
+
+  const availX = Math.max(0, maxX - minX)
+  const availY = Math.max(0, maxY - minY)
+
+  if (availX <= 0 || availY <= 0) return []
+
+  let cols = Math.max(1, Math.floor((availX + baseGapX) / (MAUS_W_M + baseGapX)))
+  let rows = Math.max(1, Math.floor((availY + baseGapY) / (MAUS_H_M + baseGapY)))
+
+  const usedX = cols * MAUS_W_M + (cols - 1) * baseGapX
+  const leftoverX = Math.max(0, availX - usedX)
+  const extraPerGapX = cols > 1 ? leftoverX / (cols - 1) : 0
+  const stepX = MAUS_W_M + baseGapX + extraPerGapX
+
+  const usedY = rows * MAUS_H_M + (rows - 1) * baseGapY
+  const leftoverY = Math.max(0, availY - usedY)
+  const extraPerGapY = rows > 1 ? leftoverY / (rows - 1) : 0
+  const stepY = MAUS_H_M + baseGapY + extraPerGapY
+
+  const features = []
+  let idx = 0
+
+  for (let r = 0; r < rows && idx < maxLots; r++) {
+    const y0 = minY + r * stepY
+    for (let c = 0; c < cols && idx < maxLots; c++) {
+      const x0 = minX + c * stepX
+
+      const rectAligned = buildRectRingAligned(x0, y0, MAUS_W_M, MAUS_H_M)
+      const rectM = rectAligned.map(p => rotatePoint(p, pivot, angleDeg))
+
+      if (!rectAllCornersInside(rectM, ringM)) continue
+
+      idx++
+      const lotNum = String(idx).padStart(3, '0')
+      const coords = ringMetersToLngLat(rectM)
+
+      features.push({
+        type: 'Feature',
+        properties: {
+          id:         `M-${lotNum}`,
+          lot_number: `M-${lotNum}`,
+          status:     'vacant',
+          block:      'MAUSOLEUM',
+          section:    'MAUSOLEUM',
+          service_type: 'Mausoleum',
+          plot_type:  'mausoleum',
+        },
+        geometry: { type: 'Polygon', coordinates: [coords] },
+      })
+    }
+  }
 
   return features
 }
 
+/**
+ * Use Design Mode selection to generate a mausoleum-only GeoJSON.
+ * Expect exactly 1 polygon (the band around the mausoleum road).
+ */
+function generateMausoleumsFromDesign() {
+  if (!draw) {
+    alert('Draw tool not ready.')
+    return
+  }
+
+  const fc = draw.getAll()
+  const polys = fc.features.filter(f => f.geometry?.type === 'Polygon')
+
+  if (polys.length !== 1) {
+    alert(`Draw exactly 1 polygon for the mausoleum area (you have ${polys.length}).`)
+    return
+  }
+
+  const maus = generateMausoleumsForPolygon(polys[0].geometry, MAUS_MAX)
+
+  if (!maus.length) {
+    alert('No mausoleum lots could be generated – try a slightly larger/wider polygon or adjust MAUS_W_M/MAUS_H_M.')
+    return
+  }
+
+  const out = { type: 'FeatureCollection', features: maus }
+  downloadFeatureCollection(out, 'bethany-mausoleums.geojson')
+  alert(`Generated ${maus.length} mausoleum lots. Import this as a MAUSOLEUM section in Admin → Plots → Import.`)
+}
+
+/* =========================================================================
+   GeoJSON download helper
+   ========================================================================= */
 function downloadFeatureCollection(fc, filename='bethany-block-plots.geojson') {
   const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json' })
   const a = document.createElement('a')
@@ -455,12 +593,23 @@ async function loadPlots() {
       map.value.addSource(plotsSourceId, { type: 'geojson', data, promoteId: 'id' })
 
       map.value.addLayer({
-        id: fillLayerId, type: 'fill', source: plotsSourceId,
-        paint: { 'fill-color': colorExpression(), 'fill-opacity': 0.38 }
+        id: fillLayerId,
+        type: 'fill',
+        source: plotsSourceId,
+        paint: {
+          'fill-color': mausoleumFillColorExpression(),
+          'fill-opacity': 0.38,
+        },
       })
       map.value.addLayer({
-        id: lineLayerId, type: 'line', source: plotsSourceId,
-        paint: { 'line-color': '#ffffff', 'line-opacity': 0.65, 'line-width': 0.8 }
+        id: lineLayerId,
+        type: 'line',
+        source: plotsSourceId,
+        paint: {
+          'line-color': outlineColorExpression(),
+          'line-opacity': 0.85,
+          'line-width': outlineWidthExpression(),
+        },
       })
       map.value.addLayer({
         id: 'plots-selected',
@@ -469,16 +618,24 @@ async function loadPlots() {
         paint: {
           'line-color': '#38bdf8',
           'line-width': 3,
-          'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
-        }
+          'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0],
+        },
       })
       map.value.addLayer({
-        id: labelLayerId, type: 'symbol', source: plotsSourceId,
+        id: labelLayerId,
+        type: 'symbol',
+        source: plotsSourceId,
         layout: {
           'text-field': ['coalesce', ['get', 'lot_number'], ''],
-          'text-size': 11, 'text-offset': [0, 0.2], 'text-optional': true
+          'text-size': 11,
+          'text-offset': [0, 0.2],
+          'text-optional': true,
         },
-        paint: { 'text-color': '#ffffff', 'text-halo-width': 0.9, 'text-halo-color': '#0b1220' },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-width': 0.9,
+          'text-halo-color': '#0b1220',
+        },
       })
 
       bulkClearSelection()
@@ -683,7 +840,7 @@ async function handleDelete(id) {
 }
 
 /* =========================================================================
-   Design Mode (draw polygons → order: left col top→bottom = 1,2,3; right = 4)
+   Design Mode (4 blocks) + Mausoleum generator
    ========================================================================= */
 function initDrawControls() {
   draw = new MapboxDraw({
@@ -863,7 +1020,7 @@ class LogoControl {
             </p>
           </div>
 
-          <!-- Quick stats chips (similar to Plots page) -->
+          <!-- Quick stats chips -->
           <div class="hidden md:flex items-center gap-2 ml-2">
             <span class="px-2 py-0.5 rounded-full text-[11px] bg-white border border-gray-200">
               Total: <span class="font-semibold">{{ totals.total }}</span>
@@ -934,7 +1091,7 @@ class LogoControl {
       </div>
     </header>
 
-    <!-- BODY: sidebar + map, fills remaining height -->
+    <!-- BODY: sidebar + map -->
     <div class="flex-1 relative flex min-h-0">
       <!-- SIDEBAR -->
       <aside
@@ -956,6 +1113,7 @@ class LogoControl {
                 <option value="BLOCK 2">BLOCK 2</option>
                 <option value="BLOCK 3">BLOCK 3</option>
                 <option value="BLOCK 4">BLOCK 4</option>
+                <option value="MAUSOLEUM">MAUSOLEUM</option>
               </select>
               <select v-model="filterStatus" class="input">
                 <option value="">All statuses</option>
@@ -996,6 +1154,9 @@ class LogoControl {
                 <button class="btn" @click="draw.trash()">🗑️ Delete Selected</button>
                 <button class="btn" @click="deleteAllBlocks()">⚠️ Delete ALL</button>
                 <button class="btn btn--mint" @click="generateAll">⚙️ Generate 4×500</button>
+                <button class="btn btn--mint" @click="generateMausoleumsFromDesign">
+                  🏛️ Generate Mausoleums (M-001…M-176)
+                </button>
               </template>
             </div>
           </section>
@@ -1007,6 +1168,7 @@ class LogoControl {
               <li class="flex items-center"><span class="legend legend--vacant"></span> Vacant</li>
               <li class="flex items-center"><span class="legend legend--reserved"></span> Reserved</li>
               <li class="flex items-center"><span class="legend legend--occupied"></span> Occupied</li>
+              <li class="flex items-center"><span class="legend legend--mausoleum"></span> Mausoleum</li>
             </ul>
 
             <div class="mt-4 grid grid-cols-2 gap-2 text-sm">
@@ -1061,7 +1223,7 @@ class LogoControl {
 </template>
 
 <style scoped>
-/* Smooth transitions without overdoing it */
+/* Smooth transitions */
 * {
   transition: background-color .16s ease,
               color .16s ease,
@@ -1081,11 +1243,6 @@ class LogoControl {
 }
 .btn--mint:hover { filter: brightness(1.04); }
 .btn--danger { @apply bg-red-600 text-white border-0 hover:bg-red-700; }
-.btn--icon { @apply w-10 h-10 rounded-lg border bg-white hover:bg-[#EFFEFA]; }
-
-.btn-group .btn { @apply rounded-none; }
-.btn-group .btn:first-child { @apply rounded-l-lg; }
-.btn-group .btn:last-child  { @apply rounded-r-lg; }
 
 /* Inputs */
 .input { @apply w-full px-3 py-2 border rounded-lg text-sm bg-white/90; }
@@ -1108,6 +1265,7 @@ class LogoControl {
 .legend--vacant   { background:#22c55e; }
 .legend--reserved { background:#eab308; }
 .legend--occupied { background:#ef4444; }
+.legend--mausoleum{ background:#9ca3af; }
 
 /* KPI chips */
 .kpi { @apply rounded-xl border bg-white px-3 py-2 text-center; }
@@ -1124,7 +1282,7 @@ class LogoControl {
 }
 @keyframes spin { to { transform: rotate(360deg) } }
 
-/* Map logo control styling */
+/* Map logo control */
 .map-logo-ctrl{
   padding: 6px;
   background: rgba(255,255,255,.9);
